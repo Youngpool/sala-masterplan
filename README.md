@@ -10,12 +10,21 @@ Plain HTML/CSS/JS. Nothing to build or install.
 Double-click a file to open it in Chrome or Edge. It works offline from file://.
 If you need a local server, run `npx serve .` or `python -m http.server` in this folder.
 
+## v4.8
+- The hover road name is always the top label: above project tags and bridge badges. The bridge nodes now live in the marker layer.
+- Shop House = the long strip (2407). Sarimi = 2405 + the buildings 2406.
+
+## v4.2: mode button, bridge leaders, road names on hover
+- **Section ⇄ Page** is one demo-only button in the left control column, in the same style as zoom and reload. It has a swap icon (⇄), and its tooltip reads "DEMO · Chuyển sang chế độ Page / Chuyển về chế độ Section". Remove it (`.mm-ctrl--mode` in `app.js`) when the pages go live behind the real menu hub. The current view carries over (`#view=urban|tod|amenity`). Hrefs come from `window.SALA_MODE_HREF` (default `index.html` / `masterplan.html`).
+- **Bridges:** one node per bridge, a dot with its name badge right beside it and no leader line. When the bridge is outside the frame, the dot waits on the frame edge with the badge on the inner side. As the bridge comes into the frame, the same dot travels onto it and the badge stays next to it, on the designer's side (`dir`). The badge moves to another side if that spot is taken, gliding when it swaps sides. Clicking an off-screen badge glides the map to the bridge.
+- **Road names on hover** (both maps): the gold Figma road label (brand #BC8E49, like the Nguyễn Cơ Thạch pill) (pill, leader and dot) pops up at the pointer's spot on the road and follows it along the road. It hangs below the road near the top of the frame. Streets have no permanent label on any map, including the 3D page: the name only appears while the road is hovered, as on the overview.
+
 ## v4.0: lit buildings, off-screen bridge nodes
 - Hovering or selecting a project shows the building cut out from the dusk render (`assets/img/map-3d-dusk.jpg`, image `Group 2147223724` in Figma frame 57:7825) by its outline, so the building lights up. The gold Figma tint stays very light on top (16%), with the outline stroke and the comet running around it.
 - Bridges outside the frame keep a node pinned to the frame edge, with an arrow pointing to the bridge and its name. The node keeps clear of the zoom controls and other nodes. Clicking it glides the map to the bridge. While a bridge is off-screen, its own label is hidden so it never shows twice.
 
 ## v3.9: bridge nodes on the real bridges, lighter idle roads
-- The bridge anchors were read from `map-3d.jpg` and sit on the bridge decks. Thủ Thiêm 2 is the inverted-Y cable-stayed bridge, Cầu đi bộ the single-pylon bridge, Thủ Thiêm 1 the long bridge on the right, and Thủ Thiêm 4 the arch bridge on the left. Thủ Thiêm 3 is not in the render, so it is hidden (`hidden: true` in `data.js`).
+- The bridge anchors were read from `map-3d.jpg` and sit on the bridge decks. Thủ Thiêm 2 is the inverted-Y cable-stayed bridge, Thủ Thiêm 3 the single-pylon bridge (confirmed by Hyun), Thủ Thiêm 1 the long bridge on the right, and Thủ Thiêm 4 the arch bridge on the left. Cầu đi bộ (confirmed by Hyun) keeps the designer's Figma anchor, because its deck is not clearly visible in the render.
 - Idle road lines on the 3D map are 0%: only the running comet shows. The bold gold Figma stroke only appears on hover.
 
 ## v3.8: one road logic on both maps
@@ -24,7 +33,7 @@ If you need a local server, run `npx serve .` or `python -m http.server` in this
 
 ## v3.7: building outlines from Figma (frame "Map" 43:7639)
 - The hover and selection zones for projects use the outlines Hyun drew in Figma (Vector 2392 and 2401–2408). They are converted to map space in `js/data.js` → `projectZones`. Each outline keeps its own fill and stroke gradient from Figma; Saritown has a multi-stop gradient.
-- Mapping: 2392 Sarene residence, 2401 Sadora, 2408 Saroma Villa, 2404 Saritown, 2403 Savila, 2405 Sarimi, 2402 Sarina, 2406 + 2407 Shop House. Sarene has no outline yet.
+- Mapping: 2392 Sarene residence, 2401 Sadora, 2408 Saroma Villa, 2404 Saritown, 2403 Savila, 2405 + 2406 Sarimi (the buildings), 2402 Sarina, 2407 Shop House (the long strip along Nguyễn Cơ Thạch). Sarene has no outline yet.
 - Hover: the map dims, the building shows its Figma fill and stroke, and a soft comet runs once around the outline (0% at head and tail).
 
 ## v3.6: depth on the 3D master map (Figma Map 49:7667)

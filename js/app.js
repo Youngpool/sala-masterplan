@@ -132,6 +132,13 @@
     var comet = makeLight(svg, g, d, cfg(ROAD_FX.comet, softId)).run(dur, G.utils.random(0, 2.5), gap == null ? 1 : gap);
     return { hl: hl, comet: comet };
   }
+  /* where each display mode lives; the single-file test build overrides this with hash routes */
+  var MODE_HREF = window.SALA_MODE_HREF || { section: 'index.html', page: 'masterplan.html' };
+  function modeHref(mode, view) {
+    var base = MODE_HREF[mode], v = view && view !== 'overview' ? 'view=' + view : '';
+    if (!v) return base;
+    return base.indexOf('#') >= 0 ? base + (base.length > 1 ? '&' : '') + v : base + '#' + v;
+  }
   function icon(svg, cls) { return '<span class="svg-icon' + (cls ? ' ' + cls : '') + '">' + svg + '</span>'; }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -297,6 +304,9 @@
     this.layers.overview.el.classList.add('is-active');
     this.updateChrome();
     this.intro();
+    /* arriving from the other display mode: continue on the same view */
+    var want = (location.hash.match(/view=(tod|urban|amenity)/) || [])[1];
+    if (want) G.delayedCall(0.5, function () { self.go(want); });
   }
   var P = MasterMap.prototype;
 
@@ -358,7 +368,18 @@
       '<button type="button" data-act="zout" aria-label="Thu nhỏ">' + icon(I.minus) + '</button></div>' +
       '<div class="mm-ctrl' + light + '" data-ctrl="reload"><button type="button" data-act="reload" aria-label="Tải lại bản đồ">' + icon(I.reload) + '</button></div>' +
       (this.mode === 'page' ? '<div class="mm-ctrl mm-ctrl--light"><button type="button" data-act="full" aria-label="Toàn màn hình">' + icon(I.expand) + '</button></div>' : '');
+    /* display mode: one button in the control column — section: open the full Masterplan page;
+       page: back to the section. The current view (TOD / urban / amenity) carries over. */
+    /* demo-only switch: a swap icon (not a design control) + a tooltip saying it is just for the demo */
+    var ICON_SWAP = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3.5 7h12M12.5 4l3 3-3 3M16.5 13h-12M7.5 10l-3 3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var toPage = this.mode === 'section', tipTxt = toPage ? 'Chuyển sang chế độ Page' : 'Chuyển về chế độ Section';
+    var mb = el('div', 'mm-ctrl' + light + ' mm-ctrl--mode',
+      '<button type="button" data-act="mode" aria-label="Demo: ' + tipTxt + '" aria-describedby="mmModeTip">' + ICON_SWAP + '</button>' +
+      '<span class="mm-tip" id="mmModeTip" role="tooltip"><b>Demo</b>' + tipTxt + '</span>');
+    mb.querySelector('button').addEventListener('click', function () { location.href = modeHref(toPage ? 'page' : 'section', self.view); });
+    ctr.appendChild(mb);
     frame.appendChild(ctr);
+
 
     this.legend = el('div', 'mm-legend', '<img src="' + IMG + 'legend.jpg" alt="Chú thích bản đồ">');
     frame.appendChild(this.legend);
@@ -469,26 +490,30 @@
       g.appendChild(hit);
       svg.appendChild(g);
       var o = self.ovRoads[rd.id] = { rd: rd, g: g, hl: hl, comet: comet, hit: hit, pts: null };
-      hit.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') self.hoverOvRoad(rd.id, true, e); });
+      hit.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') { self.hoverOvRoad(rd.id, true, e); if (self.ovHover === rd.id) self.showRoadTag('overview', o, rd.name, false, e); } });
+      hit.addEventListener('pointermove', function (e) { if (self.ovHover === rd.id && e.pointerType !== 'touch') self.showRoadTag('overview', o, rd.name, false, e); });
       hit.addEventListener('pointerleave', function (e) { if (e.pointerType !== 'touch') self.hoverOvRoad(rd.id, false); });
       /* touch: tap a road to light it up, tap again (or elsewhere) to clear */
       hit.addEventListener('click', function (e) {
         if (self.suppress) return;
         if (self.ovHover === rd.id && e.pointerType === 'touch') return self.hoverOvRoad(rd.id, false);
         self.hoverOvRoad(rd.id, true, e);
+        if (self.ovHover === rd.id) self.showRoadTag('overview', o, rd.name, false, e);
       });
     });
     c.appendChild(svg);
+    this.makeRoadTag('overview');
   };
 
-  /* nearest point on a road to a client-space pointer (paths sampled once, lazily) */
-  P.ovNearest = function (o, e) {
+  /* nearest point on a road (in map space) to a client-space pointer; the path is sampled once, lazily.
+     getCTM() maps the path's own units (e.g. the 1.289× 3D road groups) into map space. */
+  P.roadNearest = function (map, o, e) {
     if (!o.pts) {
-      var p = o.hit, L = p.getTotalLength(), n = Math.ceil(L / 6), pts = [];
-      for (var i = 0; i <= n; i++) { var q = p.getPointAtLength(L * i / n); pts.push([q.x, q.y]); }
+      var p = o.hit, L = p.getTotalLength(), n = Math.ceil(L / 6), M = p.getCTM(), pts = [];
+      for (var i = 0; i <= n; i++) { var q = p.getPointAtLength(L * i / n); pts.push([M.a * q.x + M.c * q.y + M.e, M.b * q.x + M.d * q.y + M.f]); }
       o.pts = pts;
     }
-    var cam = this.layers.overview.cam, rect = this.layers.overview.canvas.getBoundingClientRect();
+    var cam = this.layers[map].cam, rect = this.layers[map].canvas.getBoundingClientRect();
     var mx = (e.clientX - rect.left) / cam.s, my = (e.clientY - rect.top) / cam.s, best = o.pts[0], bd = Infinity;
     for (var j = 0; j < o.pts.length; j++) {
       var dx = o.pts[j][0] - mx, dy = o.pts[j][1] - my, d = dx * dx + dy * dy;
@@ -496,15 +521,32 @@
     }
     return best;
   };
-  P.moveOvChip = function (e) {
-    if (!this.ovChip) return;
-    var o = this.ovRoads[this.ovHover]; if (!o || !e || e.clientX == null) return;
-    var pt = this.ovNearest(o, e), m = this.ovChipM;
-    m.x = pt[0]; m.y = pt[1];
-    this.apply('overview');
-    /* near the top edge of the frame the chip flips below the road so it is never clipped */
-    var cam = this.layers.overview.cam;
-    this.ovChip.classList.toggle('is-below', pt[1] * cam.s + cam.ty < 70);
+  /* road name on hover: the Figma road-label (pill + leader + dot) pops up where the pointer is on the road */
+  P.makeRoadTag = function (map) {
+    var n = el('div', 'mm-road mm-road--up mm-road--tag', '<span class="mm-road__pill"></span><span class="mm-road__line"></span><span class="mm-road__dot"></span>');
+    n._len = 40;
+    var m = this.addMarker(map, n, 0, 0, 'road-up');
+    G.set(n, { autoAlpha: 0 });
+    (this.tags = this.tags || {})[map] = { n: n, m: m, pill: n.querySelector('.mm-road__pill'), on: false, name: '' };
+  };
+  P.showRoadTag = function (map, o, name, gold, e) {
+    var t = this.tags && this.tags[map];
+    if (!t || !e || e.clientX == null) return;
+    if (t.name !== name) { t.name = name; t.pill.textContent = name; t.m.w = 0; }
+    t.n.classList.add('mm-road--gold');   /* hover label is always the gold Figma pill */
+    var pt = this.roadNearest(map, o, e), cam = this.layers[map].cam;
+    /* near the top of the frame the label hangs below the road instead of above it */
+    var down = pt[1] * cam.s + cam.ty < 110;
+    if (down !== !!t.down) { t.down = down; t.n.classList.toggle('mm-road--up', !down); t.n.classList.toggle('mm-road--down', down); t.m.anchor = down ? 'road-down' : 'road-up'; }
+    t.m.x = pt[0]; t.m.y = pt[1];
+    this.apply(map);
+    if (!t.on) { t.on = true; G.fromTo(t.n, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'back.out(1.6)', overwrite: true }); }
+  };
+  P.hideRoadTag = function (map) {
+    var t = this.tags && this.tags[map];
+    if (!t || !t.on) return;
+    t.on = false;
+    G.to(t.n, { autoAlpha: 0, y: 4, duration: 0.25, overwrite: true });
   };
 
   P.hoverOvRoad = function (id, on, e) {
@@ -520,7 +562,7 @@
     o.g.classList.toggle('is-hover', on);
     G.to(this.ovDim, { opacity: on ? 1 : 0, duration: 0.5, ease: 'power2.out', overwrite: true });
     if (on) o.hl.show(1.1);
-    else o.hl.hide(0.4);
+    else { o.hl.hide(0.4); this.hideRoadTag('overview'); }
   };
 
   /* TOD plan: the four Figma layers stacked (base, arrows 5.4, transit icons 5.3, routes 5.2) */
@@ -590,13 +632,16 @@
       gRoads.appendChild(g);
       var road = { ln: ln, g: g, base: base, comet: comet, hl: hl, hit: hit, text: text, tpath: tpath, tp: tp };
       self.roads[ln.id] = road;
-      hit.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') self.hoverRoad(ln.id, true); });
+      /* road name pops up only on hover (both modes, same as the overview) */
+      function tag(e) { if (self.rdHover === ln.id) self.showRoadTag('master3d', road, ln.name, ln.gold, e); }
+      hit.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') { self.hoverRoad(ln.id, true); tag(e); } });
+      hit.addEventListener('pointermove', function (e) { if (e.pointerType !== 'touch') tag(e); });
       hit.addEventListener('pointerleave', function (e) { if (e.pointerType !== 'touch') self.hoverRoad(ln.id, false); });
       /* touch: tap a road to light it up, tap again to clear (same as the overview) */
       hit.addEventListener('click', function (e) {
         if (self.suppress) return;
         if (self.rdHover === ln.id && e.pointerType === 'touch') return self.hoverRoad(ln.id, false);
-        self.hoverRoad(ln.id, true);
+        self.hoverRoad(ln.id, true); tag(e);
       });
     });
 
@@ -644,36 +689,29 @@
     /* bridge / road labels (page: designer pills; section: bridges only as compact markers) */
     D.roads.forEach(function (r) {
       if (r.hidden) return;
-      var n = el('div', 'mm-road mm-road--' + r.dir + (r.gold ? ' mm-road--gold' : '') + (r.bridge ? ' is-bridge' : ' is-street'));
-      n._len = r.len;
-      var pill = el('span', 'mm-road__pill', esc(r.name));
-      n.appendChild(pill);
-      n.appendChild(el('span', 'mm-road__line'));
+      /* bridges: one node per bridge — a dot with its name badge right beside it (no leader line).
+         Off-screen, the dot waits on the frame edge with the badge on the inner side; as the bridge comes
+         into the frame the same dot travels onto it and the badge stays next to it (see updateEdges). */
       if (r.bridge) {
-        var dot = el('span', 'mm-road__dot');
-        dot.setAttribute('title', r.name);
-        dot.addEventListener('pointerenter', function () { self.pulseBridge(n); });
-        n.appendChild(dot);
-      }
-      pill.addEventListener('pointerenter', function () { if (r.path) self.hoverRoad(r.path, true); else self.pulseBridge(n); });
-      pill.addEventListener('pointerleave', function () { if (r.path) self.hoverRoad(r.path, false); });
-      r._el = n;
-      self.addMarker('master3d', n, r.x, r.y, 'road-' + r.dir);
-      /* off-screen hint: when the bridge is outside the frame, a node waits at the frame edge,
-         pointing towards it; clicking it glides the map to the bridge */
-      if (r.bridge) {
-        var e = el('button', 'mm-edge', '<span class="mm-edge__dot"><span class="mm-edge__dir"><i></i></span></span><span class="mm-edge__name">' + esc(r.name) + '</span>');
-        e.type = 'button';
-        e.addEventListener('click', function () {
+        var e = el('div', 'mm-edge', '<span class="mm-edge__dot"></span><button type="button" class="mm-edge__pill">' + esc(r.name) + '</button>');
+        var pulse = function () { var d = e.querySelector('.mm-edge__dot'); G.fromTo(d, { boxShadow: '0 0 0 2px rgba(122,122,122,.9), 0 0 0 0 rgba(255,254,242,.7)' }, { boxShadow: '0 0 0 2px rgba(122,122,122,.9), 0 0 0 18px rgba(255,254,242,0)', duration: 0.9, ease: 'power2.out' }); };
+        e.querySelector('.mm-edge__pill').addEventListener('pointerenter', pulse);
+        e.querySelector('.mm-edge__pill').addEventListener('click', function () {
           if (self.busy) return;
+          var it = (self.edgeEls || []).filter(function (q) { return q.el === e; })[0];
+          if (it && !it.off) return pulse();
           var cam = self.layers.master3d.cam;
           self.animateCam('master3d', self.clampCam('master3d', self.camAround('master3d', r.x, r.y + 60, cam.s)), 1.1, 'power2.inOut');
-          G.delayedCall(1.0, function () { self.pulseBridge(n); n.classList.add('is-hover'); G.delayedCall(1.6, function () { n.classList.remove('is-hover'); }); });
+          G.delayedCall(1.1, pulse);
         });
-        self.layers.master3d.el.appendChild(e);
-        (self.edgeEls = self.edgeEls || []).push({ el: e, r: r, on: false });
+        self.layers.master3d.markersEl.appendChild(e);   /* same stacking layer as labels, so the hover road name can sit above it */
+        (self.edgeEls = self.edgeEls || []).push({ el: e, r: r, on: false, side: null });
+        return;
       }
+      /* streets: no permanent label — like the overview, the name only pops up while the road is hovered */
     });
+
+    this.makeRoadTag('master3d');
 
     D.projects.forEach(function (p) {
       var b = el('button', 'mm-proj mm-proj--' + p.side);
@@ -814,28 +852,43 @@
     var L = 22, T = 22, R = this.fw - 22 - (this.padRight || 0), B = this.fh - (this.mode === 'section' ? 96 : 104);
     var ctl = this.controls ? this.controls.getBoundingClientRect() : null, fr = this.stage.getBoundingClientRect();
     var ctlR = ctl ? ctl.right - fr.left + 18 : 104, ctlB = ctl ? ctl.bottom - fr.top + 10 : 280;
-    var placed = [];
+    var GAP = 8, placed = [];
+    function hit(a) { return placed.some(function (q) { return a.x < q.x + q.w + 6 && q.x < a.x + a.w + 6 && a.y < q.y + q.h + 4 && q.y < a.y + a.h + 4; }); }
+    var tagOn = this.tags && this.tags.master3d && this.tags.master3d.on;
+    if (show) this.layers.master3d.markersEl.querySelectorAll('.mm-proj__tag, .mm-road .mm-road__pill').forEach(function (n) {
+      if (!tagOn && n.closest('.mm-road--tag')) return;
+      var r = n.getBoundingClientRect();   /* count labels by layout (they may still be fading in) */
+      if (r.width) placed.push({ x: r.left - fr.left, y: r.top - fr.top, w: r.width, h: r.height });
+    });
+    var DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
     this.edgeEls.forEach(function (e) {
+      if (!show) { if (e.on) { e.on = false; e.el.classList.remove('is-on'); } return; }
       var x = e.r.x * c.s + c.tx, y = e.r.y * c.s + c.ty;
-      var off = x < L || x > R || y < T || y > B;
-      /* the bridge's own label (pill + leader) hides while its node is off-screen, so it never shows twice */
-      if (e.r._el) e.r._el.classList.toggle('is-offscreen', show && off);
-      if (!show || !off) { if (e.on) { e.on = false; e.el.classList.remove('is-on'); } return; }
-      var cy = clamp(y, T, B), left = cy < ctlB ? ctlR : L;   /* keep clear of the zoom controls */
-      var cx = clamp(x, left, R);
-      /* nodes sharing a corner/edge: nudge along the edge so their names never overlap */
-      var w = e.el.offsetWidth || 150, h = 30, right = cx > (left + R) / 2;
-      placed.forEach(function (q) {
-        var ax = right ? cx - w : cx, bx = q.right ? q.x - q.w : q.x;
-        if (ax < bx + q.w && bx < ax + w && Math.abs(cy - q.y) < h) {
-          if (cy <= T + 1 || cy >= B - 1) cx = right ? bx - 10 : bx + q.w + 10 + (right ? w : 0);
-          else cy = q.y + h;
-        }
-      });
-      placed.push({ x: cx, y: cy, w: w, right: right });
-      e.el.style.translate = Math.round(cx) + 'px ' + Math.round(cy) + 'px';
-      e.el.style.setProperty('--ang', (Math.atan2(y - cy, x - cx) * 180 / Math.PI).toFixed(1) + 'deg');
-      e.el.classList.toggle('is-right', right);
+      var cy = clamp(y, T, B), left = cy < ctlB ? ctlR : L, cx = clamp(x, left, R);
+      e.off = cx !== x || cy !== y;
+      var pill = e.pill || (e.pill = e.el.querySelector('.mm-edge__pill')), dot = e.dot || (e.dot = e.el.querySelector('.mm-edge__dot'));
+      var w = pill.offsetWidth || 120, h = pill.offsetHeight || 26;
+      /* badge side: inward when pinned to an edge, otherwise the designer's side (dir); fall back to the others */
+      var pref = [];
+      if (x < left) pref.push('right'); if (x > R) pref.push('left'); if (y < T) pref.push('down'); if (y > B) pref.push('up');
+      pref.push(e.r.dir === 'up' ? 'up' : e.r.dir === 'left' ? 'left' : e.r.dir === 'right' ? 'right' : 'down');
+      ['right', 'left', 'down', 'up'].forEach(function (d) { if (pref.indexOf(d) < 0) pref.push(d); });
+      var box = null, side = pref[0];
+      for (var i = 0; i < pref.length; i++) {
+        var v = DIRS[pref[i]], bx = cx + v[0] * (GAP + w / 2 + 4) - w / 2, by = cy + v[1] * (GAP + h / 2 + 4) - h / 2;
+        bx = clamp(bx, left, R - w); by = clamp(by, T, B - h);
+        var cand = { x: bx, y: by, w: w, h: h };
+        if (!box) { box = cand; side = pref[i]; }
+        if (!hit(cand)) { box = cand; side = pref[i]; break; }
+      }
+      placed.push(box);
+      if (e.side && e.side !== side) {   /* glide when the badge swaps sides, instead of jumping */
+        pill.classList.add('is-gliding'); clearTimeout(e.gt); e.gt = setTimeout(function () { pill.classList.remove('is-gliding'); }, 320);
+      }
+      e.side = side;
+      dot.style.transform = 'translate(' + Math.round(cx) + 'px,' + Math.round(cy) + 'px)';
+      pill.style.transform = 'translate(' + Math.round(box.x) + 'px,' + Math.round(box.y) + 'px)';
+      e.el.classList.toggle('is-off', e.off);
       if (!e.on) { e.on = true; e.el.classList.add('is-on'); }
     });
   };
@@ -1092,7 +1145,7 @@
     r.g.classList.toggle('is-hover', on);
     G.to(this.rdDim, { opacity: on ? 1 : 0, duration: 0.5, ease: 'power2.out', overwrite: true });
     if (on) r.hl.show(1.1);
-    else r.hl.hide(0.4);
+    else { r.hl.hide(0.4); this.hideRoadTag('master3d'); }
     D.roads.forEach(function (rd) { if (rd.path === id && rd._el) rd._el.classList.toggle('is-hover', on); });
   };
   P.pulseBridge = function (n) {

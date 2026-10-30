@@ -483,20 +483,40 @@ img { display: block; }
 /* 3D map: building lit from the dusk render on hover / select (Figma 57:7825) */
 .mm-zone-lit { pointer-events: none; }
 
-/* Off-screen bridge nodes: pinned to the frame edge, arrow points to the bridge */
-.mm-edge { position: absolute; left: 0; top: 0; z-index: 8; display: flex; align-items: center; gap: 8px;
-  transform: translate(-7px, -50%); opacity: 0; pointer-events: none; transition: opacity .35s ease; cursor: pointer; --c: 122, 122, 122; }
-.mm-edge.is-on { opacity: 1; pointer-events: auto; }
-.mm-edge.is-right { flex-direction: row-reverse; transform: translate(calc(-100% + 7px), -50%); }
-.mm-edge__dot { position: relative; width: 14px; height: 14px; flex: none; border-radius: 50%; background: #fffef2;
-  box-shadow: 0 0 0 2px rgba(var(--c), .9), 0 2px 8px rgba(0, 0, 0, .35); animation: edgeBreath 2.4s ease-in-out infinite; }
-@keyframes edgeBreath { 0%, 100% { box-shadow: 0 0 0 2px rgba(var(--c), .9), 0 2px 8px rgba(0, 0, 0, .35); } 50% { box-shadow: 0 0 0 2px rgba(var(--c), .9), 0 0 0 8px rgba(255, 254, 242, .22), 0 2px 8px rgba(0, 0, 0, .35); } }
-.mm-edge__dir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform: rotate(var(--ang, 0deg)); }
-.mm-edge__dir i { position: absolute; left: 12px; top: -5px; width: 0; height: 0; border-left: 7px solid #fffef2; border-top: 5px solid transparent; border-bottom: 5px solid transparent; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4)); }
-.mm-edge__name { padding: 5px 10px; border-radius: 94px; font-size: 12px; line-height: 1.2; white-space: nowrap; color: var(--on-brand);
-  background: rgba(var(--c), .55); border: 1.5px solid rgba(var(--c), .5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: background .3s ease; }
-.mm-edge:hover .mm-edge__name { background: rgba(var(--c), .85); }
-.mm-edge .mm-edge__dot + .mm-edge__name { margin-left: 6px; }
-.mm-edge.is-right .mm-edge__dot + .mm-edge__name { margin-left: 0; margin-right: 6px; }
+/* Off-screen bridge nodes — same language as the road labels (Figma): dot on the frame edge,
+   leader line turned towards the bridge, pill at its far end. No arrows. */
+.mm-edge { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 8; opacity: 0; pointer-events: none; transition: opacity .35s ease; --c: 122, 122, 122; }
+.mm-edge.is-on { opacity: 1; }
+.mm-edge__dot { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: #fffef2; box-shadow: 0 0 0 2px rgba(var(--c), .9); animation: dotBreath 2.6s ease-in-out infinite; }
+.mm-edge__pill { position: absolute; left: 0; top: 0; padding: 5px 10px; border-radius: 94px; font-size: 12px; line-height: 1.2; white-space: nowrap; color: var(--on-brand);
+  background: rgba(var(--c), .5); border: 2px solid rgba(var(--c), .5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  cursor: pointer; transition: background .3s ease, border-color .3s ease, box-shadow .3s ease; }
+.mm-edge.is-on .mm-edge__pill { pointer-events: auto; }
+.mm-edge__pill:hover { background: rgba(var(--c), .85); border-color: rgba(255, 231, 176, .8); box-shadow: 0 0 18px rgba(255, 220, 150, .35); }
 .mm-road.is-offscreen { opacity: 0 !important; pointer-events: none; }
 .mm-road.is-offscreen * { pointer-events: none !important; }
+
+
+/* hover road name (Figma road label, popping up at the pointer on the road) */
+.mm-road--tag { pointer-events: none; z-index: 7; }
+.mm-road--tag, .mm-road--tag * { pointer-events: none !important; }   /* never steal the hover from the road under the pointer */
+.mm-section .mm-road--tag { display: flex; }
+
+/* demo-only Section ⇄ Page button: tooltip explains it is just a demo shortcut */
+.mm-ctrl--mode { position: relative; overflow: visible; }
+.mm-ctrl--mode .mm-tip { position: absolute; left: calc(100% + 12px); top: 50%; transform: translate(-4px, -50%); display: flex; align-items: center; gap: 8px;
+  padding: 7px 11px; border-radius: 4px; background: rgba(28, 22, 14, .9); color: #fffef2; font-size: 12px; line-height: 1.2; white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .25); opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
+.mm-ctrl--mode .mm-tip::before { content: ''; position: absolute; right: 100%; top: 50%; margin-top: -5px; border: 5px solid transparent; border-right-color: rgba(28, 22, 14, .9); }
+.mm-ctrl--mode .mm-tip b { font-weight: 500; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 2px; background: var(--brand); color: #fff; }
+.mm-ctrl--mode:hover .mm-tip, .mm-ctrl--mode:focus-within .mm-tip { opacity: 1; transform: translate(0, -50%); }
+@media (hover: none) { .mm-ctrl--mode .mm-tip { display: none; } }
+/* hovering a road: its label turns into the gold Figma pill (hover tag + designer road pills) */
+.mm-road.is-street.is-hover { --c: 188, 142, 73; }
+.mm-road--tag .mm-road__pill, .mm-road.is-street.is-hover .mm-road__pill { background: rgba(var(--c), .9); border-color: rgba(255, 231, 176, .75); box-shadow: 0 0 18px rgba(255, 210, 140, .35); }
+
+/* bridge node: dot + badge beside it, no leader line */
+.mm-edge__pill.is-gliding { transition: transform .3s cubic-bezier(.22, 1, .36, 1), background .3s ease; }
+/* the hover road name is always the top-most label (above project tags, bridge badges and the panel-side markers) */
+.mm-mk:has(.mm-road--tag) { z-index: 30; }
+.mm-markers { isolation: isolate; }
