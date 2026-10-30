@@ -42,7 +42,7 @@ If you need a local server, run `npx serve .` or `python -m http.server` in this
 - The soft-light gradient sits on top, as in Figma.
 
 ## v3.2: brown road highlight on the overview map
-- The 4 brown arterial roads on `map-tong.jpg` (Võ Văn Kiệt – Mai Chí Thọ, Nguyễn Hữu Cảnh – Xa lộ Hà Nội, Cao tốc Long Thành – Dầu Giây, Đỗ Xuân Hợp) are traced from the image into SVG paths in `js/data.js` → `overviewRoads`. The Figma file has no separate vector for them.
+- The 4 brown arterial roads on `map-tong.jpg` (Võ Văn Kiệt – Mai Chí Thọ, Nguyễn Hữu Cảnh, Cao tốc Long Thành – Dầu Giây, Đỗ Xuân Hợp) are traced from the image into SVG paths in `js/data.js` → `overviewRoads`. The Figma file has no separate vector for them.
 - Idle: a soft gold light runs along each axis as a comet. It fades in at the head and out along the tail, with no hard dash ends. Every road light (comet, opening sweep, hover highlight and the static line on the 3D map) is drawn through a mask of soft dots along the path (`makeLight` in `app.js`). Brightness is shaped along the path and always tapers to 0% at both ends of the road. The 3D map's road lights use the same effect. When the map opens, the axes are drawn on one after another.
 - Hover (tap on mobile): the map dims slightly, the road glows gold with a bright core drawn along it.
 
