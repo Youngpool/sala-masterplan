@@ -1205,12 +1205,7 @@
       G.fromTo(lines, { scaleY: 0, transformOrigin: '50% 100%' }, { scaleY: 1, duration: 0.7, stagger: 0.05, ease: 'power3.out', delay: d, clearProps: 'transform' });
       G.fromTo(tags, { autoAlpha: 0, y: -12 }, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.05, ease: 'back.out(1.8)', delay: d + 0.25, clearProps: 'transform' });
       G.fromTo(L.querySelectorAll('.mm-road'), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8, stagger: 0.04, delay: d + 0.4 });
-      var self = this;
-      Object.keys(this.roads).forEach(function (k, i) {
-        var r = self.roads[k];
-        r.hl.show(1.4, d + 0.2 + i * 0.15);
-        r.hl.hide(0.8, d + 1.7 + i * 0.15);
-      });
+      /* no road sweep on arrival: roads only light up when someone interacts with them */
     } else if (map === 'amenity') {
       G.fromTo(L.querySelectorAll('.mm-pin'), { autoAlpha: 0, scale: 0.3 }, { autoAlpha: 1, scale: 1, duration: 0.5, stagger: { each: 0.03, from: 'center' }, ease: 'back.out(2.2)', delay: d, clearProps: 'transform' });
     } else if (map === 'overview') {

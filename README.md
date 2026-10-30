@@ -10,6 +10,9 @@ Plain HTML/CSS/JS. Nothing to build or install.
 Double-click a file to open it in Chrome or Edge. It works offline from file://.
 If you need a local server, run `npx serve .` or `python -m http.server` in this folder.
 
+## v4.9
+- Opening the urban 3D map no longer lights up every road. Only the subtle running comets show; a road lights up only on hover or tap.
+
 ## v4.8
 - The hover road name is always the top label: above project tags and bridge badges. The bridge nodes now live in the marker layer.
 - Shop House = the long strip (2407). Sarimi = 2405 + the buildings 2406.
